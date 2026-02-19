@@ -10,22 +10,16 @@ import {
 import { 
   getFirestore, 
   doc, 
-  getDoc, 
-  setDoc, 
-  collection, 
-  query, 
   onSnapshot, 
-  updateDoc,
-  addDoc
+  setDoc 
 } from 'firebase/firestore';
 import { 
-  Zap, Lock, Wand2, Loader2, Layers, Download, Trash2, 
-  Mail, Settings, LogOut, Sparkles, Cpu, ShieldCheck, Clock,
-  ChevronRight, Play, UserCheck, Users, AlertCircle, Eye,
-  BarChart3, Plus
+  Zap, Lock, Wand2, Loader2, Layers, Mail, Settings, 
+  LogOut, Sparkles, ShieldCheck, Clock, ChevronRight, 
+  Plus, BarChart3, Users, Download, Play, Eye
 } from 'lucide-react';
 
-// --- CONFIGURACIÓN DE FIREBASE (Edwin, estas son tus llaves) ---
+// --- CONFIGURACIÓN DE FIREBASE (Edwin, tus llaves están aquí) ---
 const firebaseConfig = {
   apiKey: "AIzaSyCRDyd7jbpKvKr4Zf6-honZrddlHu8u12s",
   authDomain: "creator-os-pro.firebaseapp.com",
@@ -40,43 +34,30 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'creator-os-pro';
 
-// DATOS DE PRUEBA (Para que veas la app funcionando sin APIs)
-const MOCK_DATA = [
-  { id: '1', prompt: "Escena de apertura: Paisaje futurista en Marte con domos de cristal.", url: "https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?auto=format&fit=crop&q=80&w=1000", createdAt: Date.now() - 100000 },
-  { id: '2', prompt: "Primer plano de un androide reparando un motor de luz.", url: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1000", createdAt: Date.now() - 500000 }
+// DATOS MOCK PARA VISUALIZACIÓN
+const MOCK_ITEMS = [
+  { id: '1', title: 'Escena Espacial', prompt: 'Un astronauta flotando cerca de un agujero negro de neón.', date: 'Hoy' },
+  { id: '2', title: 'Cyberpunk City', prompt: 'Calles de Tokio en el año 2099 con lluvia constante.', date: 'Ayer' }
 ];
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentView] = useState('generator');
+  const [view, setView] = useState('dashboard');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
         const userRef = doc(db, 'artifacts', appId, 'users', u.uid);
-        const unsubUser = onSnapshot(userRef, (docSnap) => {
-          if (docSnap.exists()) {
-            setUserData(docSnap.data());
-          } else {
-            // Auto-autorizamos al primer usuario para que puedas probarlo sin ir a Firebase
-            const newData = { 
-              email: u.email, 
-              isAuthorized: true, // Edwin, lo pongo en TRUE para que entres directo
-              role: 'admin', 
-              createdAt: Date.now() 
-            };
-            setDoc(userRef, newData);
-            setUserData(newData);
+        onSnapshot(userRef, (snap) => {
+          if (!snap.exists()) {
+            setDoc(userRef, { email: u.email, role: 'admin', isAuthorized: true, createdAt: Date.now() });
           }
           setUser(u);
           setLoading(false);
         });
-        return () => unsubUser();
       } else {
         setUser(null);
-        setUserData(null);
         setLoading(false);
       }
     });
@@ -84,11 +65,8 @@ export default function App() {
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <Loader2 className="w-10 h-10 text-purple-600 animate-spin" />
-        <p className="text-slate-400 text-xs font-bold tracking-[0.2em] uppercase">Iniciando Creator OS...</p>
-      </div>
+    <div className="flex items-center justify-center min-h-screen bg-[#0B0F19]">
+      <Loader2 className="w-10 h-10 text-purple-600 animate-spin" />
     </div>
   );
 
@@ -96,112 +74,102 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[#0B0F19] text-slate-300 font-sans overflow-hidden">
-      {/* SIDEBAR PROFESIONAL */}
-      <aside className="w-64 bg-[#111827] border-r border-slate-800 flex flex-col flex-shrink-0">
-        <div className="h-16 flex items-center px-6 border-b border-slate-800">
-          <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-purple-900/40">
+      {/* SIDEBAR */}
+      <aside className="w-64 bg-[#111827] border-r border-slate-800 flex flex-col shrink-0">
+        <div className="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+          <div className="p-2 bg-purple-600 rounded-lg shadow-lg shadow-purple-900/40">
             <Zap className="w-5 h-5 text-white fill-white" />
           </div>
-          <h1 className="font-bold text-white text-xs tracking-[0.2em]">CREATOR OS</h1>
+          <span className="font-bold text-white text-sm tracking-widest">CREATOR OS</span>
         </div>
-        
-        <nav className="flex-1 p-4 space-y-1">
-          <SidebarItem 
-            icon={<BarChart3 />} 
-            label="Dashboard" 
-            active={currentView === 'generator'} 
-            onClick={() => setCurrentView('generator')}
-          />
-          <SidebarItem icon={<Layers />} label="Proyectos" />
-          <SidebarItem icon={<Users />} label="Comunidad" />
-          
-          <div className="pt-4 mt-4 border-t border-slate-800/50">
-            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest px-4 mb-2">Ajustes</p>
-            <SidebarItem icon={<ShieldCheck />} label="Privacidad" />
-            <SidebarItem icon={<Settings />} label="Configuración" />
+
+        <nav className="flex-1 p-4 space-y-2">
+          <NavItem icon={<BarChart3 size={18}/>} label="DASHBOARD" active={view === 'dashboard'} onClick={() => setView('dashboard')} />
+          <NavItem icon={<Layers size={18}/>} label="PROYECTOS" />
+          <NavItem icon={<Users size={18}/>} label="EQUIPO" />
+          <div className="pt-6 mt-6 border-t border-slate-800/50">
+            <p className="px-4 mb-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Sistema</p>
+            <NavItem icon={<ShieldCheck size={18}/>} label="SEGURIDAD" />
+            <NavItem icon={<Settings size={18}/>} label="CONFIGURACIÓN" />
           </div>
         </nav>
 
-        <div className="p-4 bg-[#0f1523] border-t border-slate-800">
-           <div className="flex items-center gap-3 mb-4 px-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-lg">
-                {user.email ? user.email[0].toUpperCase() : 'U'}
-              </div>
-              <div className="min-w-0 text-left">
-                <p className="text-xs font-bold text-white truncate">{user.email}</p>
-                <p className="text-[9px] text-purple-400 font-bold uppercase tracking-tighter">Administrador</p>
-              </div>
-           </div>
-           <button onClick={() => signOut(auth)} className="w-full flex items-center justify-center gap-2 text-[10px] font-bold text-slate-500 hover:text-red-400 transition-colors py-3 bg-slate-900/50 rounded-xl border border-slate-800">
-             <LogOut className="w-3 h-3" /> SALIR DEL SISTEMA
-           </button>
+        <div className="p-4 bg-[#0d121d] border-t border-slate-800">
+          <div className="flex items-center gap-3 mb-4 p-2">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-lg">
+              {user.email[0].toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-white truncate">{user.email}</p>
+              <p className="text-[9px] text-purple-400 font-bold uppercase tracking-tighter">Owner Account</p>
+            </div>
+          </div>
+          <button onClick={() => signOut(auth)} className="w-full flex items-center justify-center gap-2 py-3 text-[10px] font-bold text-slate-500 hover:text-red-400 bg-slate-900/50 rounded-xl border border-slate-800 transition-colors">
+            <LogOut size={14} /> CERRAR SESIÓN
+          </button>
         </div>
       </aside>
 
-      {/* CONTENIDO PRINCIPAL */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-purple-900/10 via-[#0B0F19] to-[#0B0F19]">
-        <header className="h-16 border-b border-slate-800/50 flex items-center justify-between px-8 bg-[#0B0F19]/60 backdrop-blur-md">
-          <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold tracking-widest uppercase">
-             <span>Explorar</span> <ChevronRight className="w-3 h-3" /> <span className="text-white">Producción en Vivo</span>
+        <header className="h-16 flex items-center justify-between px-8 bg-[#0B0F19]/60 backdrop-blur-md border-b border-slate-800/50">
+          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            <span>Inicio</span> <ChevronRight size={12} /> <span className="text-white">Panel de Producción</span>
           </div>
-          <button className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-all">
-            <Plus className="w-3 h-3" /> NUEVO PROYECTO
+          <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold rounded-lg transition-all shadow-lg shadow-purple-900/20">
+            <Plus size={14} /> NUEVA ESCENA
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl mx-auto space-y-10">
-            {/* Estadísticas Rápidas */}
-            <div className="grid grid-cols-4 gap-6">
-              <StatCard label="Proyectos Totales" value="24" icon={<Layers className="text-blue-400"/>} />
-              <StatCard label="Escenas Generadas" value="142" icon={<Wand2 className="text-purple-400"/>} />
-              <StatCard label="Tiempo de Render" value="1.2s" icon={<Clock className="text-green-400"/>} />
-              <StatCard label="Usuarios Activos" value="1" icon={<Users className="text-amber-400"/>} />
+            {/* Stats */}
+            <div className="grid grid-cols-4 gap-6 text-left">
+              <StatBox label="Activos IA" value="1,240" color="text-blue-400" />
+              <StatBox label="Renderizado" value="98%" color="text-green-400" />
+              <StatBox label="Créditos" value="∞" color="text-purple-400" />
+              <StatBox label="Usuarios" value="1" color="text-amber-400" />
             </div>
 
-            {/* Generador Simulado */}
-            <div className="bg-[#111827] border border-slate-800 rounded-[2rem] p-8 shadow-2xl overflow-hidden relative">
+            {/* Simulación Generador */}
+            <div className="relative p-8 bg-[#111827] border border-slate-800 rounded-[2rem] shadow-2xl overflow-hidden text-left">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
               <div className="flex gap-8">
                 <div className="flex-1 space-y-6">
-                  <h3 className="text-white font-bold flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-purple-400" /> Creador Dinámico
-                  </h3>
-                  <textarea 
-                    className="w-full h-32 bg-[#0B0F19] border border-slate-700 rounded-2xl p-5 text-sm text-slate-300 focus:border-purple-500 outline-none resize-none transition-all"
-                    placeholder="Prueba a escribir algo aquí para ver cómo funciona el editor..."
-                  />
-                  <button className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 shadow-lg shadow-purple-900/20 transition-all active:scale-[0.98]">
-                    <Wand2 className="w-4 h-4" /> SIMULAR PRODUCCIÓN IA
+                  <h3 className="text-white font-bold flex items-center gap-2"><Sparkles size={18} className="text-purple-400" /> Motor de Creación</h3>
+                  <textarea className="w-full h-32 p-5 bg-[#0B0F19] border border-slate-700 rounded-2xl text-sm text-slate-300 outline-none focus:border-purple-500 transition-all resize-none shadow-inner" placeholder="Escribe el guion de tu próxima escena..." />
+                  <button className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shadow-lg shadow-purple-900/20 flex items-center justify-center gap-3 transition-all active:scale-95">
+                    <Wand2 size={18} /> PRODUCIR CON IA
                   </button>
                 </div>
-                <div className="w-1/3 bg-[#0B0F19] rounded-2xl border border-slate-800 border-dashed flex items-center justify-center text-center p-6">
-                  <div className="text-slate-600">
-                    <Eye className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                    <p className="text-[10px] uppercase font-bold tracking-widest">Vista Previa</p>
-                  </div>
+                <div className="w-1/3 bg-[#0B0F19] rounded-2xl border border-slate-800 border-dashed flex flex-col items-center justify-center text-slate-600">
+                  <Eye size={32} className="mb-2 opacity-20" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Previsualización</p>
                 </div>
               </div>
             </div>
 
-            {/* Grid de Contenido */}
+            {/* Recientes */}
             <div className="space-y-6 text-left">
-              <h3 className="text-white font-bold text-lg px-2">Producciones Recientes</h3>
-              <div className="grid grid-cols-2 gap-8">
-                {MOCK_DATA.map(item => (
-                  <div key={item.id} className="bg-[#111827] border border-slate-800 rounded-3xl overflow-hidden group hover:border-slate-500 transition-all shadow-xl">
-                    <div className="aspect-video relative overflow-hidden">
-                      <img src={item.url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="Preview" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-6">
-                        <p className="text-white text-sm font-medium leading-relaxed italic line-clamp-2">"{item.prompt}"</p>
-                      </div>
+              <h3 className="text-white font-bold text-lg px-2">Historial de Producción</h3>
+              <div className="grid grid-cols-2 gap-8 text-left">
+                {MOCK_ITEMS.map(item => (
+                  <div key={item.id} className="bg-[#111827] border border-slate-800 rounded-3xl overflow-hidden hover:border-slate-500 transition-all shadow-xl group">
+                    <div className="aspect-video bg-slate-900 relative overflow-hidden flex items-center justify-center">
+                       <Layers size={48} className="text-slate-800 group-hover:scale-110 transition-transform" />
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent flex items-end p-6">
+                         <div className="w-full text-left">
+                           <p className="text-[10px] font-bold text-purple-400 uppercase mb-1">{item.title}</p>
+                           <p className="text-xs text-white italic line-clamp-2">"{item.prompt}"</p>
+                         </div>
+                       </div>
                     </div>
-                    <div className="p-4 flex justify-between items-center bg-[#111827]">
+                    <div className="p-4 flex justify-between items-center bg-slate-900/50">
                       <div className="flex gap-4">
-                        <button className="text-slate-500 hover:text-white transition-colors"><Download size={18}/></button>
-                        <button className="text-slate-500 hover:text-white transition-colors"><Play size={18}/></button>
+                        <Download size={16} className="text-slate-500 hover:text-white cursor-pointer" />
+                        <Play size={16} className="text-slate-500 hover:text-white cursor-pointer" />
                       </div>
-                      <span className="text-[10px] text-slate-600 font-bold">ACTIVO</span>
+                      <span className="text-[10px] font-bold text-slate-600">{item.date}</span>
                     </div>
                   </div>
                 ))}
@@ -214,81 +182,66 @@ export default function App() {
   );
 }
 
-// --- COMPONENTES AUXILIARES ---
-
-function StatCard({ label, value, icon }) {
+// COMPONENTES PEQUEÑOS
+function NavItem({ icon, label, active = false, onClick }) {
   return (
-    <div className="bg-[#111827] border border-slate-800 p-6 rounded-2xl flex items-center justify-between shadow-lg">
-      <div className="text-left">
-        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">{label}</p>
-        <p className="text-2xl font-black text-white">{value}</p>
-      </div>
-      <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center border border-slate-800">
-        {icon}
-      </div>
-    </div>
+    <button onClick={onClick} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-bold tracking-widest transition-all ${active ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}>
+      {icon} <span>{label}</span>
+    </button>
   );
 }
 
-function SidebarItem({ icon, label, active = false, onClick }) {
+function StatBox({ label, value, color }) {
   return (
-    <button 
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[11px] font-bold tracking-wider transition-all ${active ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30' : 'text-slate-500 hover:text-white hover:bg-slate-800'}`}
-    >
-      {React.cloneElement(icon, { size: 16 })}
-      <span className="uppercase">{label}</span>
-    </button>
+    <div className="p-6 bg-[#111827] border border-slate-800 rounded-2xl shadow-lg text-left">
+      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1">{label}</p>
+      <p className={`text-2xl font-black ${color}`}>{value}</p>
+    </div>
   );
 }
 
 function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [pass, setPass] = useState('');
   const [error, setError] = useState('');
 
   const handleAuth = async (e) => {
     e.preventDefault();
     try {
-      if (isLogin) await signInWithEmailAndPassword(auth, email, password);
-      else await createUserWithEmailAndPassword(auth, email, password);
-    } catch (err) { setError("Error: Revisa tus credenciales."); }
+      if (isLogin) await signInWithEmailAndPassword(auth, email, pass);
+      else await createUserWithEmailAndPassword(auth, email, pass);
+    } catch (e) { setError("Acceso denegado. Revisa tus datos."); }
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#0B0F19] to-[#0B0F19]">
-      <div className="max-w-md w-full bg-[#111827] border border-slate-800 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#0B0F19] bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#0B0F19] to-[#0B0F19]">
+      <div className="w-full max-w-md bg-[#111827] p-10 rounded-[3rem] shadow-2xl border border-slate-800 relative overflow-hidden text-center">
         <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
         <div className="text-center mb-10">
-          <Zap className="w-12 h-12 text-purple-600 mx-auto mb-4 drop-shadow-[0_0_10px_rgba(147,51,234,0.5)]" />
+          <Zap className="w-14 h-14 text-purple-600 mx-auto mb-4 drop-shadow-[0_0_10px_rgba(147,51,234,0.3)]" />
           <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Creator OS</h1>
-          <p className="text-slate-500 text-[10px] mt-2 uppercase font-bold tracking-[0.3em]">Ambiente de Producción Pro</p>
+          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.3em] mt-2">Intelligence Studio Pro</p>
         </div>
         <form onSubmit={handleAuth} className="space-y-5 text-left">
-          <input 
-            type="email" 
-            className="w-full bg-[#0B0F19] border border-slate-700 rounded-2xl py-4 px-6 text-white outline-none focus:border-purple-500 transition-all placeholder-slate-700" 
-            placeholder="Correo del Creador" 
-            value={email} 
-            onChange={e=>setEmail(e.target.value)} 
-            required 
-          />
-          <input 
-            type="password" 
-            className="w-full bg-[#0B0F19] border border-slate-700 rounded-2xl py-4 px-6 text-white outline-none focus:border-purple-500 transition-all placeholder-slate-700" 
-            placeholder="Clave Privada" 
-            value={password} 
-            onChange={e=>setPassword(e.target.value)} 
-            required 
-          />
-          {error && <p className="text-red-400 text-[10px] text-center font-bold bg-red-400/5 py-3 rounded-xl border border-red-400/10 uppercase tracking-widest">{error}</p>}
-          <button className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-2xl shadow-xl shadow-purple-900/30 transition-all active:scale-[0.98]">
-            {isLogin ? 'ACCEDER AL SISTEMA' : 'REGISTRAR MI CUENTA'}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest ml-1">Email del Creador</label>
+            <input type="email" placeholder="nombre@estudio.com" className="w-full py-4 px-6 bg-[#0B0F19] border border-slate-700 rounded-2xl text-white outline-none focus:border-purple-500 transition-all shadow-inner" value={email} onChange={e=>setEmail(e.target.value)} required />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-600 uppercase tracking-widest ml-1">Clave Maestra</label>
+            <input type="password" placeholder="••••••••" className="w-full py-4 px-6 bg-[#0B0F19] border border-slate-700 rounded-2xl text-white outline-none focus:border-purple-500 transition-all shadow-inner" value={pass} onChange={e=>setPass(e.target.value)} required />
+          </div>
+          {error && <p className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold text-center rounded-xl uppercase tracking-widest">{error}</p>}
+          <button className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl shadow-xl shadow-purple-900/30 transition-all active:scale-[0.98]">
+            {isLogin ? 'ACCEDER AL ESTUDIO' : 'REGISTRAR MI CUENTA'}
           </button>
         </form>
-        <button onClick={() => setIsLogin(!isLogin)} className="w-full mt-8 text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] hover:text-white transition-colors">
-          {isLogin ? '¿No tienes acceso? Crea tu cuenta ›' : '¿Ya eres miembro? Inicia sesión ›'}
+        <button 
+          onClick={() => setIsLogin(!isLogin)} 
+          className="w-full mt-8 text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] hover:text-white transition-colors"
+        >
+          {isLogin ? '¿Eres nuevo? Crea tu cuenta ›' : '¿Ya tienes cuenta? Entra aquí ›'}
         </button>
       </div>
     </div>
